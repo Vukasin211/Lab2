@@ -45,8 +45,8 @@ CIND17359View::CIND17359View() noexcept
 	showGrid = false;
 	hostRectangle = CRect(0, 0, hostRectangleSize, hostRectangleSize);
 
-	firstCactusPartDeg = 45;
-	secondCactusPartDeg = 45;
+	firstCactusPartDeg = 0;
+	secondCactusPartDeg = -45;
 }
 
 CIND17359View::~CIND17359View()
@@ -74,17 +74,29 @@ void CIND17359View::OnDraw(CDC* pDC)
 
 	this->DrawBackground(pDC);
 
-	
-	this->DrawStaticPartsOfCactus(pDC);
 	this->DrawFlowerPot(pDC);
-	this->DrawFirstMovingPartOfCactus(pDC);
 	this->DrawStudentInfo(pDC);
+
+	this->DrawStaticPartsOfCactus(pDC);
+	
+	//this->DrawFirstMovingPartOfCactus(pDC);
+	
 	if(showGrid)
 	this->DrawGrid(pDC);
 }
 
 void CIND17359View::DrawBackground(CDC* pDC)
 {
+	int prevMode = SetGraphicsMode(pDC->m_hDC, GM_ADVANCED);
+	XFORM xformOld;
+	GetWorldTransform(pDC->m_hDC, &xformOld);
+
+	this->Translate(pDC, hostRectangle.CenterPoint().x, hostRectangle.bottom, false);
+	this->Rotate(pDC,  M_PI, false);
+	this->Translate(pDC, -hostRectangle.CenterPoint().x, -hostRectangle.bottom, false);
+	this->Translate(pDC, 0, 500, false);
+
+
 	CBrush blueBrush(RGB(135, 206, 235));
 	CBrush* oldBrush = pDC->SelectObject(&blueBrush);
 	CGdiObject* oldPen = pDC->SelectStockObject(NULL_PEN);
@@ -132,19 +144,33 @@ void CIND17359View::DrawGrid(CDC* pDC)
 
 void CIND17359View::DrawStudentInfo(CDC* pDC)
 {
-	//COLORREF clrOld = pDC->SetTextColor(RGB(255, 255, 0));
-	int nOldMode = pDC->SetBkMode(TRANSPARENT);
-	char* signature = "17359 Vukasin Popovic";
-	CString str(signature);
-	CFont font;;
-	font.CreateFont(innerRectangleSize, 13, -900, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, (CString)"Times New Roman");
+	int prevMode = SetGraphicsMode(pDC->m_hDC, GM_ADVANCED);
+	XFORM xformOld;
+	GetWorldTransform(pDC->m_hDC, &xformOld);
+
+	int oldBkMode = pDC->SetBkMode(TRANSPARENT);
+
+	int nHeight = 1.4 * innerRectangleSize;
+	CString sFaceName("Times New Roman");
+	CFont font;
+	font.CreateFontW(nHeight, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, sFaceName);
 	CFont* oldFont = pDC->SelectObject(&font);
-	pDC->SetTextAlign(TA_TOP);
-	pDC->TextOut(hostRectangle.right - innerRectangleSize, innerRectangleSize, str);
-	COLORREF clrOld = pDC->SetTextColor(RGB(255, 255, 0));
-	pDC->TextOut(hostRectangle.right - innerRectangleSize - 2, innerRectangleSize + 2, str);
-	pDC->SetBkMode(nOldMode);
-	pDC->SetTextColor(clrOld);
+
+	CPoint autographPosition(hostRectangle.left + 0.8 * innerRectangleSize, hostRectangle.top + innerRectangleSize);
+
+	CString autograph("17359 Vukasin Popovic");
+	pDC->TextOutW(autographPosition.x, autographPosition.y, autograph); 
+	COLORREF oldTextColor = pDC->SetTextColor(RGB(255, 255, 0));
+	pDC->TextOutW(autographPosition.x - 2, autographPosition.y + 2, autograph);
+
+	SetWorldTransform(pDC->m_hDC, &xformOld);
+
+	pDC->SetBkMode(oldBkMode);
+	pDC->SetTextColor(oldTextColor);
+	pDC->SelectObject(oldFont);
+	font.DeleteObject();
+
+	SetGraphicsMode(pDC->m_hDC, prevMode);
 }
 
 void CIND17359View::DrawFlowerPot(CDC* pDC)
@@ -179,22 +205,27 @@ void CIND17359View::DrawFlowerPot(CDC* pDC)
 void CIND17359View::DrawStaticPartsOfCactus(CDC* pDC)
 {
 	int prevMode = SetGraphicsMode(pDC->m_hDC, GM_ADVANCED);
-	XFORM xformOld;
-	GetWorldTransform(pDC->m_hDC, &xformOld);
+	//XFORM xformOld;
+	//GetWorldTransform(pDC->m_hDC, &xformOld);
 
 	CRect bottomCircle(int(hostRectangle.left + 9.6 * innerRectangleSize),
-		int(hostRectangle.bottom - 3.4 * innerRectangleSize),
+		int(hostRectangle.top + 3.4 * innerRectangleSize),
 		int(hostRectangle.left + 10.4 * innerRectangleSize),
-		int(hostRectangle.bottom - 2.6 * innerRectangleSize));
+		int(hostRectangle.top + 2.6 * innerRectangleSize));
 
 	HENHMETAFILE cactusStandardPart = GetEnhMetaFile(CString("res/cactus_part.emf"));
+	HENHMETAFILE rotatingCactusPart = GetEnhMetaFile(CString("res/cactus_part_light.emf"));
 
 	CRect middleCactusPart(hostRectangle.left + 8.8 * innerRectangleSize,
 		hostRectangle.bottom - 6 * innerRectangleSize,
 		hostRectangle.right - 8.8 * innerRectangleSize,
 		hostRectangle.bottom - 3 * innerRectangleSize);
 
-	PlayEnhMetaFile(pDC->m_hDC, cactusStandardPart, middleCactusPart); //crtanje dela koji je vezan za source.emf
+	this->Translate(pDC, middleCactusPart.CenterPoint().x, middleCactusPart.bottom, false);
+	this->Rotate(pDC, (firstCactusPartDeg * M_PI / 180), false);
+	this->Translate(pDC, -middleCactusPart.CenterPoint().x, -middleCactusPart.bottom, false);
+
+	PlayEnhMetaFile(pDC->m_hDC, rotatingCactusPart, middleCactusPart); //crtanje dela koji je vezan za source.emf
 
 	CRect middleCircle(bottomCircle.left,
 		int(hostRectangle.bottom - 6.4 * innerRectangleSize),
@@ -208,6 +239,11 @@ void CIND17359View::DrawStaticPartsOfCactus(CDC* pDC)
 		hostRectangle.bottom - 6 * innerRectangleSize
 	);
 
+	CRect firstCircle(int(hostRectangle.left + 9.6 * innerRectangleSize),
+		int(hostRectangle.bottom - 9.4 * innerRectangleSize),
+		int(hostRectangle.left + 10.4 * innerRectangleSize),
+		int(hostRectangle.bottom - 8.6 * innerRectangleSize));
+
 	CRect leftThinCactusPart(
 		hostRectangle.left + 9.5 * innerRectangleSize,
 		hostRectangle.bottom - 9 * innerRectangleSize,
@@ -219,21 +255,53 @@ void CIND17359View::DrawStaticPartsOfCactus(CDC* pDC)
 	CBrush* oldBrush = pDC->SelectObject(&darkGreenBrush);
 
 	this->Translate(pDC, leftThinCactusPart.CenterPoint().x, leftThinCactusPart.bottom, false);
-	this->Rotate(pDC, - (M_PI / 4), false);
+	this->Rotate(pDC, M_PI / 4, false);
 	this->Translate(pDC, -leftThinCactusPart.CenterPoint().x, -leftThinCactusPart.bottom, false);
 	
 	PlayEnhMetaFile(pDC->m_hDC, cactusStandardPart, middleThinCactusPart);
 
-	this->NoTranform(pDC);
+	this->Translate(pDC, leftThinCactusPart.CenterPoint().x, leftThinCactusPart.bottom, false);
+	this->Rotate(pDC, -M_PI / 4, false);
+	this->Translate(pDC, -leftThinCactusPart.CenterPoint().x, -leftThinCactusPart.bottom, false);
 
 	PlayEnhMetaFile(pDC->m_hDC, cactusStandardPart, middleThinCactusPart);
-	pDC->Ellipse(bottomCircle);
+	pDC->Ellipse(firstCircle);
 	pDC->Ellipse(middleCircle);
+
+	CRect middleSizeCactusPart(hostRectangle.left + 9.1 * innerRectangleSize, //deo srednje debljine a ne lokacije
+		hostRectangle.bottom - 12 * innerRectangleSize,
+		hostRectangle.right - 9.1 * innerRectangleSize,
+		hostRectangle.bottom - 9 * innerRectangleSize);
+
+	this->Translate(pDC, middleSizeCactusPart.CenterPoint().x, middleSizeCactusPart.bottom, false);
+	this->Rotate(pDC, /*2 **/  M_PI / 4, false);
+	this->Translate(pDC, -middleSizeCactusPart.CenterPoint().x, -middleSizeCactusPart.bottom, false);
+
+	PlayEnhMetaFile(pDC->m_hDC, cactusStandardPart, middleSizeCactusPart);
+
+	
+
+	this->Translate(pDC, middleSizeCactusPart.CenterPoint().x, middleSizeCactusPart.bottom, false);
+	this->Rotate(pDC, -M_PI / 4, false);
+	this->Translate(pDC, -middleSizeCactusPart.CenterPoint().x, -middleSizeCactusPart.bottom, false);
+
+	this->DrawSecondMovingCactusPart(pDC);
+
+	this->DrawFirstMovingPartOfCactus(pDC);
+	
+
+
+	this->NoTranform(pDC);
+
+	
+	pDC->Ellipse(bottomCircle);
+	
 
 	pDC->SelectObject(oldBrush);
 	darkGreenBrush.DeleteObject();
 	SetGraphicsMode(pDC->m_hDC, prevMode);
 	DeleteEnhMetaFile(cactusStandardPart);
+	DeleteEnhMetaFile(rotatingCactusPart);
 }
 
 void CIND17359View::DrawFirstMovingPartOfCactus(CDC* pDC){
@@ -255,10 +323,11 @@ void CIND17359View::DrawFirstMovingPartOfCactus(CDC* pDC){
 	);
 	
 	this->Translate(pDC, rightThinCactusPart.CenterPoint().x, rightThinCactusPart.bottom, false);
-	this->Rotate(pDC, (firstCactusPartDeg * M_PI / 180), false);
+	//this->Rotate(pDC, (firstCactusPartDeg * M_PI / 180), false);
+	this->Rotate(pDC, - M_PI / 4, false);
 	this->Translate(pDC, -rightThinCactusPart.CenterPoint().x, -rightThinCactusPart.bottom, false);
 
-	PlayEnhMetaFile(pDC->m_hDC, rotatingCactusPart, rightThinCactusPart);
+	PlayEnhMetaFile(pDC->m_hDC, cactusStandardPart, rightThinCactusPart);
 
 	CRect firstCircle(int(hostRectangle.left + 9.6 * innerRectangleSize),
 		int(hostRectangle.bottom - 9.4 * innerRectangleSize),
@@ -294,7 +363,7 @@ void CIND17359View::DrawFirstMovingPartOfCactus(CDC* pDC){
 	pDC->Ellipse(secondCircle);
 
 	this->Translate(pDC, ThinCactusPart.CenterPoint().x, ThinCactusPart.bottom, false);
-	this->Rotate(pDC,  -(M_PI / 4), false);
+	this->Rotate(pDC,  M_PI / 4, false);
 	this->Translate(pDC, -ThinCactusPart.CenterPoint().x, -ThinCactusPart.bottom, false);
 	
 	PlayEnhMetaFile(pDC->m_hDC, cactusStandardPart, ThinCactusPart);
@@ -302,27 +371,19 @@ void CIND17359View::DrawFirstMovingPartOfCactus(CDC* pDC){
 	pDC->Ellipse(secondCircle);
 
 	this->Translate(pDC, ThinCactusPart.CenterPoint().x, ThinCactusPart.bottom, false);
-	this->Rotate(pDC, 2 * M_PI / 4, false);
+	this->Rotate(pDC, -2 * M_PI / 4, false);
 	this->Translate(pDC, -ThinCactusPart.CenterPoint().x, -ThinCactusPart.bottom, false);
 
 	PlayEnhMetaFile(pDC->m_hDC, cactusStandardPart, ThinCactusPart);
 
-	this->Translate(pDC, middleCactusPart.CenterPoint().x, middleCactusPart.bottom, false);
-	this->Rotate(pDC, -(M_PI / 4), false);
-	this->Translate(pDC, -middleCactusPart.CenterPoint().x, -middleCactusPart.bottom, false);
-	
-	PlayEnhMetaFile(pDC->m_hDC, cactusStandardPart, middleCactusPart);
-
-	this->Translate(pDC, middleCactusPart.CenterPoint().x, middleCactusPart.bottom, false);
-	this->Rotate(pDC, M_PI / 4, false);
-	this->Translate(pDC, -middleCactusPart.CenterPoint().x, -middleCactusPart.bottom, false);
 
 
-	pDC->Ellipse(secondCircle);
+
+	//pDC->Ellipse(secondCircle);
 
 	pDC->Ellipse(firstCircle);
 
-	this->DrawSecondMovingCactusPart(pDC);
+	//this->DrawSecondMovingCactusPart(pDC);
 
 	this->NoTranform(pDC);
 
@@ -338,19 +399,23 @@ void CIND17359View::DrawSecondMovingCactusPart(CDC* pDC){
 
 	HENHMETAFILE rotatingCactusPart = GetEnhMetaFile(CString("res/cactus_part_light.emf"));
 
-	CRect middleCactusPart(hostRectangle.left + 9.1 * innerRectangleSize, 
-		hostRectangle.bottom - 15 * innerRectangleSize,
+	CRect middleSizeCactusPart(hostRectangle.left + 9.1 * innerRectangleSize, //deo srednje debljine a ne lokacije
+		hostRectangle.bottom - 12 * innerRectangleSize,
 		hostRectangle.right - 9.1 * innerRectangleSize,
-		hostRectangle.bottom - 12 * innerRectangleSize);
+		hostRectangle.bottom - 9 * innerRectangleSize);
 
-	this->Translate(pDC, middleCactusPart.CenterPoint().x, middleCactusPart.bottom, false);
-	this->Rotate(pDC, (secondCactusPartDeg * M_PI / 180), false);
-	this->Translate(pDC, -middleCactusPart.CenterPoint().x, -middleCactusPart.bottom, false);
 
-	PlayEnhMetaFile(pDC->m_hDC, rotatingCactusPart, middleCactusPart);
+	this->Translate(pDC, middleSizeCactusPart.CenterPoint().x, middleSizeCactusPart.bottom, false);
+	this->Rotate(pDC, secondCactusPartDeg* M_PI / 180, false);
+	this->Translate(pDC, -middleSizeCactusPart.CenterPoint().x, -middleSizeCactusPart.bottom, false);
+
+	PlayEnhMetaFile(pDC->m_hDC, rotatingCactusPart, middleSizeCactusPart);
+
+	this->Translate(pDC, middleSizeCactusPart.CenterPoint().x, middleSizeCactusPart.bottom, false);
+	this->Rotate(pDC, -secondCactusPartDeg * M_PI / 180, false);
+	this->Translate(pDC, -middleSizeCactusPart.CenterPoint().x, -middleSizeCactusPart.bottom, false);
 
 	DeleteEnhMetaFile(rotatingCactusPart);
-
 }
 
 void CIND17359View::Scale(CDC* pDC, float sX, float sY, bool rightMultiply) {
